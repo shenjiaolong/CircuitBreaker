@@ -41,7 +41,7 @@ public class FailContinuousCbStrategy extends CbStrategy {
         }
 
         if(failContinuousCount ==  failContinuousCiruitThreshold ){
-            System.out.println("-------------连续三次失败，触发熔断！！");
+            System.out.println("-------------连续n次失败，触发熔断！！");
             return true;
         }
         return false;

@@ -34,10 +34,14 @@ public class CbState {
     }
 
     /** 改变熔断器状态 */
-    public synchronized void changeState(int state){
+    public synchronized boolean changeState(int state){
         /**这里也是做个状态保护 保证状态机的正常流转  因为三个状态的变更 是有固定方向的
          * 如当前处于关闭状态只能变更为打开状态  即新状态依赖的值依赖当前状态  这样的状态变更用不到传入的参数state
          * ATTEMPT_CLOSE状态除外需要用到state参数 因为它可变更成两个状态 */
+        //双重检查 防止并发时 其他线程已经改过state置为a了 当前线程还想要把 state置为a
+        if(getCurrentState()==state){
+            return false;
+        }
         switch (getCurrentState()){
             case CLOSE:
                 this.state = OPEN;
@@ -58,6 +62,7 @@ public class CbState {
                 System.out.println("当前状态变更为------state = "+ (state==1?"CLOSE 接下来执行正常方案":"OPEN  接下来执行FallBack方案"));
                 break;
         }
+        return true;
     }
 
     /**
@@ -68,8 +73,9 @@ public class CbState {
         if(state != OPEN){
             return;
         }
-        long minute = (System.currentTimeMillis()-circuitOpenTime)/(1000);
-        if(minute >= dalayTime){
+        long minute = (System.currentTimeMillis()-circuitOpenTime);
+        System.out.println(minute);
+        if(minute >= dalayTime*1000){
            changeState(ATTEMPT_CLOSE);
         }
     }

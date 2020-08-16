@@ -64,20 +64,21 @@ public class CircuitBreaker {
         //如果在熔断器尝试关闭 即ATTEMPT_CLOSE状态下  做尝试恢复计数 可能触发熔断器状态变更为OPEN或CLOSE状态
         if(state.getCurrentState()== CbState.ATTEMPT_CLOSE ){
             int successCount = strategy.attemptRenewSuccessCount(isFail);
-
             //当限流令牌用完了 则说明尝试恢复正常调用次数已经执行完  看成功总次数有没有达到阈值
-            if(semaphore.availablePermits() == 0 && successCount == strategy.getAttemptRenewTimesThreshold() ){
-                state.changeState(CbState.CLOSE);
-                //状态由ATTEMPT_CLOSE变更后 清零尝试成功数 并把令牌释放掉
-                strategy.attemptRenewSuccessCountReset();
-                this.releaseToken();
-                System.out.println("-------连续三次试探调用成功  熔断器关闭！");
+            if(semaphore.availablePermits() == 0 && successCount >= strategy.getAttemptRenewTimesThreshold() ){
+                if(state.changeState(CbState.CLOSE)){
+                    //状态由ATTEMPT_CLOSE 成功变更后 清零尝试成功数 并把令牌释放掉
+                    strategy.attemptRenewSuccessCountReset();
+                    this.releaseToken();
+                    System.out.println("-------连续n 次试探调用成功  熔断器关闭！");
+                }
             }else if(semaphore.availablePermits() == 0 && successCount < strategy.getAttemptRenewTimesThreshold() ){
-                state.changeState(CbState.OPEN);
-                //状态由ATTEMPT_CLOSE变更后 清零尝试成功数 并把令牌释放掉
-                strategy.attemptRenewSuccessCountReset();
-                this.releaseToken();
-                System.out.println("-------三次试探调用有失败   熔断器仍然打开！");
+                if(state.changeState(CbState.OPEN)){
+                    //状态由ATTEMPT_CLOSE 成功变更后 清零尝试成功数 并把令牌释放掉
+                    strategy.attemptRenewSuccessCountReset();
+                    this.releaseToken();
+                    System.out.println("-------n 次试探调用有失败   熔断器仍然打开！");
+                }
             }
         }
     }
@@ -97,10 +98,41 @@ public class CircuitBreaker {
      * @return
      */
     public int getCurrentState(){
-        //当状态是OPEN时 检查是否可以切换到 尝试关闭状态 ATTEMPT_CLOSE
-        if(state.getCurrentState()== CbState.OPEN){
-            state.checkSwitchAttemptClose(strategy.getDalayTime());
+
+        switch (state.getCurrentState()){
+
+            //当状态是OPEN时 检查是否可以切换到 尝试关闭状态 ATTEMPT_CLOSE
+            case CbState.OPEN:{
+                state.checkSwitchAttemptClose(strategy.getDalayTime());
+                break;
+            }
+
+            //这里是做防范的 防止高并发下某个线程很迟久后才获取到cpu执行机会 在令牌用完了ATTEMPT_CLOSE状态就可以改变了
+            // 其他线程可以照样有机会来把ATTEMPT_CLOSE状态改了
+            case CbState.ATTEMPT_CLOSE:{
+                //如果在熔断器尝试关闭 即ATTEMPT_CLOSE状态下  做尝试恢复计数 可能触发熔断器状态变更为OPEN或CLOSE状态
+                int successCount = strategy.getAttemptRenewSuccessCount();
+                System.out.println("successCount  "+successCount+"  semaphore.availablePermits()" +semaphore.availablePermits());
+                //当限流令牌用完了 则说明尝试恢复正常调用次数已经执行完  看成功总次数有没有达到阈值
+                if(semaphore.availablePermits() == 0 && successCount >= strategy.getAttemptRenewTimesThreshold() ){
+                    if(state.changeState(CbState.CLOSE)){
+                        //状态由ATTEMPT_CLOSE 成功变更后 清零尝试成功数 并把令牌释放掉
+                        strategy.attemptRenewSuccessCountReset();
+                        this.releaseToken();
+                        System.out.println("-------连续n次试探调用成功  熔断器关闭！");
+                    }
+                }else if(semaphore.availablePermits() == 0 && successCount < strategy.getAttemptRenewTimesThreshold() ){
+                    if(state.changeState(CbState.OPEN)){
+                        //状态由ATTEMPT_CLOSE 成功变更后 清零尝试成功数 并把令牌释放掉
+                        strategy.attemptRenewSuccessCountReset();
+                        this.releaseToken();
+                        System.out.println("-------n次试探调用有失败   熔断器仍然打开！");
+                    }
+                }
+                break;
+            }
         }
+
         return state.getCurrentState();
     }
 

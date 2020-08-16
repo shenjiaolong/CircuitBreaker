@@ -63,9 +63,18 @@ public abstract class CbStrategy {
      * 尝试恢复成功次数计数 并返回
      * @return
      */
+    public  int getAttemptRenewSuccessCount() {
+        return attemptRenewSuccessCount;
+    }
+
+    /**
+     * 尝试恢复成功次数计数 并返回
+     * @return
+     */
     public synchronized int attemptRenewSuccessCount( boolean isFail) {
+
         if(!isFail){
-           return ++attemptRenewSuccessCount;
+            return ++attemptRenewSuccessCount;
         }
         return attemptRenewSuccessCount;
     }
