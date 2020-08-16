@@ -112,7 +112,6 @@ public class CircuitBreaker {
             case CbState.ATTEMPT_CLOSE:{
                 //如果在熔断器尝试关闭 即ATTEMPT_CLOSE状态下  做尝试恢复计数 可能触发熔断器状态变更为OPEN或CLOSE状态
                 int successCount = strategy.getAttemptRenewSuccessCount();
-                System.out.println("successCount  "+successCount+"  semaphore.availablePermits()" +semaphore.availablePermits());
                 //当限流令牌用完了 则说明尝试恢复正常调用次数已经执行完  看成功总次数有没有达到阈值
                 if(semaphore.availablePermits() == 0 && successCount >= strategy.getAttemptRenewTimesThreshold() ){
                     if(state.changeState(CbState.CLOSE)){

@@ -74,7 +74,6 @@ public class CbState {
             return;
         }
         long minute = (System.currentTimeMillis()-circuitOpenTime);
-        System.out.println(minute);
         if(minute >= dalayTime*1000){
            changeState(ATTEMPT_CLOSE);
         }
